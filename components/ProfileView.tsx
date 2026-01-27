@@ -1,6 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { User } from '../types';
+import { clearAllData } from '../services/mockData';
 import { 
   Camera, 
   Mail, 
@@ -11,8 +12,9 @@ import {
   IdCard,
   Briefcase,
   ExternalLink,
-  ChevronRight,
-  BookMarked
+  BookMarked,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -38,6 +40,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
         setTimeout(() => setShowSuccess(false), 3000);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePurge = () => {
+    if (window.confirm("CRITICAL: This will delete ALL locally saved manuscripts and reset the application to its initial state. This cannot be undone. Proceed?")) {
+      clearAllData();
     }
   };
 
@@ -155,14 +163,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800">University Portal Settings</h3>
+          <div className="bg-rose-50 rounded-3xl border border-rose-100 overflow-hidden shadow-sm">
+            <div className="p-6 border-b border-rose-100 flex items-center justify-between">
+              <h3 className="font-bold text-rose-900 flex items-center gap-2">
+                <AlertTriangle size={20} /> Data Management
+              </h3>
             </div>
-            <div className="p-4 space-y-2">
-              <PreferenceToggle label="Research Alerts" description="Status updates from university evaluators" defaultEnabled />
-              <PreferenceToggle label="Directory Listing" description="Visible to other Stellaris researchers" defaultEnabled />
-              <PreferenceToggle label="ScholarAI Assistance" description="Official university research aid integration" defaultEnabled />
+            <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-bold text-rose-800">Reset Vault</h4>
+                <p className="text-xs text-rose-600/70">Clear browser storage to resolve upload errors.</p>
+              </div>
+              <button 
+                onClick={handlePurge}
+                className="w-full sm:w-auto px-6 py-2.5 bg-rose-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} /> Purge Local Cache
+              </button>
             </div>
           </div>
 
@@ -188,18 +205,6 @@ const DetailItem = ({ icon, label, value, highlight = false }: any) => (
     </div>
     <div className={`p-3 rounded-xl border border-slate-100 bg-slate-50/50 text-sm font-bold ${highlight ? 'text-indigo-900' : 'text-slate-700'}`}>
       {value}
-    </div>
-  </div>
-);
-
-const PreferenceToggle = ({ label, description, defaultEnabled = false }: any) => (
-  <div className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors group cursor-pointer">
-    <div className="flex-1">
-      <h4 className="text-sm font-bold text-slate-800">{label}</h4>
-      <p className="text-xs text-slate-500">{description}</p>
-    </div>
-    <div className={`w-12 h-6 rounded-full relative transition-all ${defaultEnabled ? 'bg-indigo-900' : 'bg-slate-200'}`}>
-      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${defaultEnabled ? 'left-7' : 'left-1'}`}></div>
     </div>
   </div>
 );

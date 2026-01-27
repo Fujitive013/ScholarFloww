@@ -1,6 +1,9 @@
 
 import { Thesis, ThesisStatus } from '../types';
 
+// Use a more unique key to avoid collisions with other apps on localhost
+const STORAGE_KEY = 'stellaris_vault_v1_theses';
+
 export const INITIAL_THESES: Thesis[] = [
   // --- LIBRARY MOCKS (PUBLISHED) ---
   {
@@ -17,21 +20,6 @@ export const INITIAL_THESES: Thesis[] = [
     publishedDate: '2023-08-01',
     fileUrl: 'https://arxiv.org/pdf/1706.03762.pdf', 
     keywords: ['NLP', 'Healthcare', 'Machine Learning'],
-    reviews: [],
-  },
-  {
-    id: 'p2',
-    authorId: 'u2',
-    authorName: 'Sarah L. Thompson',
-    supervisorName: 'Dr. Kevin Zhang',
-    title: 'Blockchain-Based Electronic Voting Systems: Security and Scalability Analysis',
-    abstract: 'Electronic voting faces critical challenges regarding voter anonymity and result immutability. This thesis proposes a layer-2 scaling solution for Ethereum.',
-    department: 'Engineering',
-    year: '2024',
-    status: ThesisStatus.PUBLISHED,
-    submissionDate: '2023-11-20',
-    publishedDate: '2024-01-15',
-    keywords: ['Blockchain', 'Cryptography', 'Governance'],
     reviews: [],
   },
   
@@ -69,96 +57,41 @@ export const INITIAL_THESES: Thesis[] = [
     reviews: [
       { id: 'rej1', reviewerId: 'r9', reviewerName: 'Dr. Ethics Board', comment: 'Methodological scope is too narrow for a Doctoral thesis.', date: '2024-02-10', recommendation: 'REJECT' }
     ]
-  },
-
-  // --- REVIEWER QUEUE MOCKS ---
-  {
-    id: 'q1',
-    authorId: 'u101',
-    authorName: 'Leo Messi',
-    supervisorName: 'Dr. Pep Guardiola',
-    title: 'Kinematics of Low-Gravity Locomotion',
-    abstract: 'Analyzing movement patterns in environments with reduced gravitational pull.',
-    department: 'Physics',
-    year: '2024',
-    status: ThesisStatus.PENDING,
-    submissionDate: '2024-02-18',
-    keywords: ['Physics', 'Kinematics'],
-    reviews: []
-  },
-  {
-    id: 'q2',
-    authorId: 'u102',
-    authorName: 'Serena Williams',
-    supervisorName: 'Dr. Venus Williams',
-    title: 'Materials Science in High-Performance Sports Equipment',
-    abstract: 'Testing composite structures to enhance racket durability.',
-    department: 'Engineering',
-    year: '2024',
-    status: ThesisStatus.UNDER_REVIEW,
-    submissionDate: '2024-02-10',
-    keywords: ['Materials', 'Sports'],
-    reviews: []
-  },
-
-  // --- ADMIN QUEUE MOCKS ---
-  {
-    id: 'app1',
-    authorId: 'u201',
-    authorName: 'Marie Curie',
-    supervisorName: 'Dr. Pierre Curie',
-    title: 'Radioactivity: Implications for Modern Medicine',
-    abstract: 'A foundational study on radiation physics and medical isotopes.',
-    department: 'Physics',
-    year: '2024',
-    status: ThesisStatus.REVIEWED,
-    submissionDate: '2024-01-15',
-    keywords: ['Physics', 'Radiation'],
-    reviews: [
-      { 
-        id: 'rev1', 
-        reviewerId: 'r1', 
-        reviewerName: 'Dr. Albert Einstein', 
-        comment: 'The methodology for isolating isotopes is groundbreaking.', 
-        date: '2024-02-01', 
-        recommendation: 'APPROVE' 
-      }
-    ]
-  },
-  {
-    id: 'app2',
-    authorId: 'u202',
-    authorName: 'Ada Lovelace',
-    supervisorName: 'Charles Babbage',
-    title: 'Algorithmic Potential of the Analytical Engine',
-    abstract: 'Exploring computing before computers existed conceptually.',
-    department: 'Mathematics',
-    year: '2024',
-    status: ThesisStatus.REVIEWED,
-    submissionDate: '2024-01-10',
-    keywords: ['Algorithms', 'Computing'],
-    reviews: [
-      {
-        id: 'rev2',
-        reviewerId: 'r2',
-        reviewerName: 'Alan Turing',
-        comment: 'Fascinating conceptual work, ready for release.',
-        date: '2024-02-05',
-        recommendation: 'APPROVE'
-      }
-    ]
   }
 ];
 
 export const getTheses = (): Thesis[] => {
-  const stored = localStorage.getItem('scholarflow_theses');
-  if (stored) return JSON.parse(stored);
-  localStorage.setItem('scholarflow_theses', JSON.stringify(INITIAL_THESES));
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.error("Storage Retrieval Error:", err);
+  }
+  
+  // If no valid data, initialize with mocks
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_THESES));
   return INITIAL_THESES;
 };
 
 export const updateTheses = (newTheses: Thesis[]) => {
-  localStorage.setItem('scholarflow_theses', JSON.stringify(newTheses));
-  // Dispatch custom event to notify other components in the same tab
-  window.dispatchEvent(new Event('thesesUpdated'));
+  try {
+    const dataString = JSON.stringify(newTheses);
+    localStorage.setItem(STORAGE_KEY, dataString);
+    window.dispatchEvent(new Event('thesesUpdated'));
+  } catch (err: any) {
+    console.error("Storage Update Failed:", err);
+    // Explicitly check for quota error
+    if (err.name === 'QuotaExceededError' || err.code === 22) {
+      throw new Error("QUOTA_FULL");
+    }
+    throw err;
+  }
+};
+
+export const clearAllData = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  window.location.reload();
 };
