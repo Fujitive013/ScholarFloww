@@ -33,7 +33,8 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'application/pdf') {
+      const isPdf = selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
         alert("Institutional records must be in PDF format.");
         return;
       }

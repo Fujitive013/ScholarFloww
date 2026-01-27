@@ -1,11 +1,9 @@
 
 import { Thesis, ThesisStatus } from '../types';
 
-// Use a more unique key to avoid collisions with other apps on localhost
 const STORAGE_KEY = 'stellaris_vault_v1_theses';
 
 export const INITIAL_THESES: Thesis[] = [
-  // --- LIBRARY MOCKS (PUBLISHED) ---
   {
     id: 'p1',
     authorId: 'u1',
@@ -22,8 +20,6 @@ export const INITIAL_THESES: Thesis[] = [
     keywords: ['NLP', 'Healthcare', 'Machine Learning'],
     reviews: [],
   },
-  
-  // --- STUDENT MOCKS (ALEX RIVERA - s1) ---
   {
     id: 'mt1',
     authorId: 's1',
@@ -41,24 +37,26 @@ export const INITIAL_THESES: Thesis[] = [
     versions: [
        { id: 'v0', timestamp: '2024-02-10 10:00', title: 'Initial Draft: Football AI', abstract: 'Pre-review abstract.' }
     ]
-  },
-  {
-    id: 'mt4',
-    authorId: 's1',
-    authorName: 'Alex Rivera',
-    supervisorName: 'Prof. Marcus Aurelius',
-    title: 'Ethical Implications of Autonomous Defense Systems',
-    abstract: 'A philosophical examination of algorithmic lethality in modern warfare.',
-    department: 'Philosophy',
-    year: '2024',
-    status: ThesisStatus.REJECTED,
-    submissionDate: '2024-01-05',
-    keywords: ['Ethics', 'AI'],
-    reviews: [
-      { id: 'rej1', reviewerId: 'r9', reviewerName: 'Dr. Ethics Board', comment: 'Methodological scope is too narrow for a Doctoral thesis.', date: '2024-02-10', recommendation: 'REJECT' }
-    ]
   }
 ];
+
+// Returns approximate bytes used across ALL of localhost
+export const getStorageUsage = () => {
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      total += (localStorage.getItem(key) || '').length * 2; // UTF-16 strings use 2 bytes per char
+    }
+  }
+  return total;
+};
+
+// Returns approximate bytes used ONLY by this app
+export const getAppStorageUsage = () => {
+  const data = localStorage.getItem(STORAGE_KEY) || '';
+  return data.length * 2;
+};
 
 export const getTheses = (): Thesis[] => {
   try {
@@ -71,7 +69,6 @@ export const getTheses = (): Thesis[] => {
     console.error("Storage Retrieval Error:", err);
   }
   
-  // If no valid data, initialize with mocks
   localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_THESES));
   return INITIAL_THESES;
 };
@@ -83,15 +80,20 @@ export const updateTheses = (newTheses: Thesis[]) => {
     window.dispatchEvent(new Event('thesesUpdated'));
   } catch (err: any) {
     console.error("Storage Update Failed:", err);
-    // Explicitly check for quota error
-    if (err.name === 'QuotaExceededError' || err.code === 22) {
+    // Code 22 is the standard QuotaExceededError in most browsers
+    if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.message.includes('quota')) {
       throw new Error("QUOTA_FULL");
     }
     throw err;
   }
 };
 
-export const clearAllData = () => {
+export const clearAppPath = () => {
   localStorage.removeItem(STORAGE_KEY);
+  window.location.reload();
+};
+
+export const nuclearReset = () => {
+  localStorage.clear(); // Wipes everything on localhost
   window.location.reload();
 };
