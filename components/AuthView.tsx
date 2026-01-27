@@ -33,6 +33,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const dispatchToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    window.dispatchEvent(new CustomEvent('scholarflow-toast', { detail: { message, type } }));
+  };
+
   const loginWithEmail = (targetEmail: string, forcedRole?: UserRole) => {
     setLoading(true);
     setEmail(targetEmail);
@@ -64,6 +68,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         avatar: avatar
       });
       setLoading(false);
+      dispatchToast(`Welcome, ${name}. Authenticated as ${role}.`, "success");
     }, 1200);
   };
 

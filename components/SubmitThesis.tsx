@@ -24,26 +24,35 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const dispatchToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    window.dispatchEvent(new CustomEvent('scholarflow-toast', { detail: { message, type } }));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       if (selectedFile.size > 10 * 1024 * 1024) {
-        alert("Institutional limit exceeded: PDF manuscripts must be under 10MB.");
+        dispatchToast("Institutional limit exceeded: PDF manuscripts must be under 10MB.", "error");
         return;
       }
       setFile(selectedFile);
+      dispatchToast("Manuscript integrity verified and staged.", "success");
     }
   };
 
   const handleAISuggest = async () => {
     if (!formData.title || !formData.abstract) return;
     setIsUploading(true);
+    dispatchToast("ScholarAI analyzing research context...", "info");
     const result = await extractThesisMetadata(formData.title, formData.abstract);
     if (result) {
         setFormData(prev => ({ 
           ...prev, 
           department: result.suggestedDepartment || prev.department,
         }));
+        dispatchToast("Scholarly metadata optimized by AI.", "success");
+    } else {
+        dispatchToast("AI metadata synthesis failed.", "warning");
     }
     setIsUploading(false);
   };
@@ -97,10 +106,11 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
       setTimeout(() => {
         setIsUploading(false);
         setStep(3);
+        dispatchToast("Manuscript committed to Faculty Evaluation Queue.", "success");
       }, 1800);
 
     } catch (err) {
-      alert("Institutional verification failed. Ensure your manuscript is a sanitized PDF.");
+      dispatchToast("Institutional verification failed. Check file sanity.", "error");
       setIsUploading(false);
     }
   };
