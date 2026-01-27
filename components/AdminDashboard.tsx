@@ -69,21 +69,16 @@ const AdminDashboard: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }
     if (blobUrl) window.open(blobUrl, '_blank');
   };
 
-  const dispatchToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    window.dispatchEvent(new CustomEvent('scholarflow-toast', { detail: { message, type } }));
-  };
-
   const handleApprove = (id: string) => {
     const all = getTheses();
     updateTheses(all.map(t => t.id === id ? { ...t, status: ThesisStatus.PUBLISHED, publishedDate: new Date().toLocaleDateString() } : t));
-    dispatchToast("Institutional Sanction Granted. Manuscript is now Public.", "success");
+    alert("Institutional Sanction Granted. Manuscript is now Public.");
   };
 
   const handleReject = (id: string) => {
     if (!window.confirm("Reject institutional authorization? This record will be returned to the Faculty Advisor.")) return;
     const all = getTheses();
     updateTheses(all.map(t => t.id === id ? { ...t, status: ThesisStatus.REJECTED } : t));
-    dispatchToast("Institutional Sanction Revoked. Record returned.", "warning");
   };
 
   const filtered = queue.filter(item => {

@@ -35,10 +35,6 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
     return () => window.removeEventListener('thesesUpdated', load);
   }, []);
 
-  const dispatchToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    window.dispatchEvent(new CustomEvent('scholarflow-toast', { detail: { message, type } }));
-  };
-
   useEffect(() => {
     const targetUrl = showManuscript || reviewingThesis?.fileUrl;
     if (targetUrl) {
@@ -101,7 +97,6 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
     setReviewingThesis(null);
     setReviewNote('');
     setRecommendation('APPROVE');
-    dispatchToast(`Review committed: ${recommendation}`, "success");
   };
 
   const filteredQueue = queue.filter(item => {
