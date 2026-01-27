@@ -4,7 +4,6 @@ import { User, UserRole } from '../types';
 import { 
   LogIn, 
   UserPlus, 
-  Globe, 
   BookOpen, 
   Mail, 
   Lock, 
@@ -16,10 +15,7 @@ import {
   Activity,
   Award,
   ChevronRight,
-  GraduationCap,
-  Fingerprint,
-  Building2,
-  Link as LinkIcon
+  GraduationCap
 } from 'lucide-react';
 
 interface AuthViewProps {
@@ -33,35 +29,30 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Define stable mock profiles to ensure data persistence works across sessions
+  const MOCK_PROFILES: Record<string, { id: string, name: string, role: UserRole }> = {
+    'student@stellaris.edu': { id: 's1', name: 'Alex Rivera', role: 'STUDENT' },
+    'reviewer@stellaris.edu': { id: 'r1', name: 'Dr. Sarah Jenkins', role: 'REVIEWER' },
+    'admin@stellaris.edu': { id: 'a1', name: 'Dean Henderson', role: 'ADMIN' },
+    'guest@stellaris.edu': { id: 'g1', name: 'Visiting Researcher', role: 'GUEST' },
+  };
+
   const loginWithEmail = (targetEmail: string, forcedRole?: UserRole) => {
     setLoading(true);
-    setEmail(targetEmail);
-
-    let role: UserRole = forcedRole || 'STUDENT';
-    let name = 'Alex Rivera';
-    let avatar = `https://i.pravatar.cc/150?u=${targetEmail}`;
-
     const cleanEmail = targetEmail.toLowerCase().trim();
-    if (!forcedRole) {
-      if (cleanEmail === 'reviewer@stellaris.edu') {
-        role = 'REVIEWER';
-        name = 'Dr. Sarah Jenkins';
-      } else if (cleanEmail === 'admin@stellaris.edu') {
-        role = 'ADMIN';
-        name = 'Dean Henderson';
-      } else if (cleanEmail === 'guest@stellaris.edu') {
-        role = 'GUEST';
-        name = 'Visiting Researcher';
-      }
-    }
+
+    // Use a stable ID based on the email or the predefined mock profile
+    const profile = MOCK_PROFILES[cleanEmail] || {
+      id: `u_${cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_')}`,
+      name: cleanEmail.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+      role: forcedRole || 'STUDENT'
+    };
 
     setTimeout(() => {
       onLogin({
-        id: `u_${role.toLowerCase()}_${Date.now()}`,
-        name: name,
-        email: targetEmail,
-        role: role,
-        avatar: avatar
+        ...profile,
+        email: cleanEmail,
+        avatar: `https://i.pravatar.cc/150?u=${profile.id}`
       });
       setLoading(false);
     }, 800);
@@ -100,7 +91,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               A Legacy of <span className="text-indigo-400">Excellence</span>.
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Stellaris University scholarly terminal.
+              Stellaris University scholarly terminal. Your research journey starts here.
             </p>
           </div>
 
@@ -118,7 +109,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               {mode === 'LOGIN' ? 'Portal Access' : 'Register Account'}
             </h3>
             <p className="text-slate-500 text-xs font-medium">
-              Stellaris personnel only.
+              Stellaris personnel only. Identity verification required.
             </p>
           </div>
 
@@ -157,11 +148,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                     <Award size={16} />
                     <span className="text-[10px] font-bold uppercase">Faculty</span>
                   </button>
-                </div>
-
-                <div className="relative">
-                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                  <input required className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs shadow-sm" placeholder="Full Name" />
                 </div>
               </div>
             )}
@@ -210,11 +196,11 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
           {mode === 'LOGIN' && (
             <div className="space-y-3">
-              <div className="relative flex justify-center text-[9px] font-bold uppercase tracking-widest text-slate-400"><span className="bg-slate-50 px-2">Profiles</span></div>
+              <div className="relative flex justify-center text-[9px] font-bold uppercase tracking-widest text-slate-400"><span className="bg-slate-50 px-2">Institutional Profiles</span></div>
               <div className="grid grid-cols-1 gap-2">
-                <ProfileQuickLink role="Student" email="student@stellaris.edu" onClick={() => loginWithEmail('student@stellaris.edu')} />
-                <ProfileQuickLink role="Faculty" email="reviewer@stellaris.edu" onClick={() => loginWithEmail('reviewer@stellaris.edu')} />
-                <ProfileQuickLink role="Admin" email="admin@stellaris.edu" onClick={() => loginWithEmail('admin@stellaris.edu')} />
+                <ProfileQuickLink role="Student (Alex)" email="student@stellaris.edu" onClick={() => loginWithEmail('student@stellaris.edu')} />
+                <ProfileQuickLink role="Faculty (Dr. Jenkins)" email="reviewer@stellaris.edu" onClick={() => loginWithEmail('reviewer@stellaris.edu')} />
+                <ProfileQuickLink role="Admin (Provost)" email="admin@stellaris.edu" onClick={() => loginWithEmail('admin@stellaris.edu')} />
               </div>
             </div>
           )}
