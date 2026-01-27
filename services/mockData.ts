@@ -88,6 +88,11 @@ export const updateTheses = (newTheses: Thesis[]) => {
   }
 };
 
+export const submitNewThesis = (thesis: Thesis) => {
+  const current = getTheses();
+  updateTheses([...current, thesis]);
+};
+
 export const clearAppPath = () => {
   localStorage.removeItem(STORAGE_KEY);
   window.location.reload();

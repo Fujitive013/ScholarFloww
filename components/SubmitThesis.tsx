@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User, ThesisStatus, Thesis } from '../types';
-import { getTheses, updateTheses } from '../services/mockData';
+import { submitNewThesis } from '../services/mockData';
 import { 
-  Upload, CheckCircle2, Loader2, X, ArrowLeft, Send, FileText, Maximize2, AlertTriangle
+  Upload, CheckCircle2, Loader2, X, ArrowLeft, Send, FileText, Maximize2, AlertTriangle, Users, User as UserIcon
 } from 'lucide-react';
 
 interface SubmitThesisProps {
@@ -16,11 +16,13 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
   const [isValidating, setIsValidating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(1);
+  const [isIndependent, setIsIndependent] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     abstract: '',
     department: '',
     supervisor: '',
+    coAuthors: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,47 +63,74 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Field-level Validation
+    if (!formData.title.trim()) {
+      alert("Submission Error: Manuscript title is required.");
+      return;
+    }
+    if (formData.abstract.trim().length < 50) {
+      alert("Submission Error: The abstract is too short. Please provide at least 50 characters of academic context.");
+      return;
+    }
+    if (!formData.supervisor.trim()) {
+      alert("Submission Error: A Faculty Supervisor must be specified for ingress evaluation.");
+      return;
+    }
+    if (!isIndependent && !formData.coAuthors.trim()) {
+      alert("Submission Error: Collaborative work must specify at least one co-author.");
+      return;
+    }
+    if (!file) {
+      alert("Submission Error: No PDF manuscript file detected.");
+      return;
+    }
+
     setIsUploading(true);
     
     try {
-      console.log("Starting manuscript ingress for file:", file?.name);
+      console.log("Starting manuscript ingress for file:", file.name);
 
-      const fileDataUrl = file ? await (new Promise<string>((resolve, reject) => {
+      const fileDataUrl = await (new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = () => reject(new Error("Browser failed to read the PDF file."));
         reader.readAsDataURL(file);
-      })) : "";
+      }));
       
-      const all = getTheses();
+      const coResearchers = !isIndependent && formData.coAuthors 
+        ? formData.coAuthors.split(',').map(name => name.trim()).filter(Boolean)
+        : [];
+
       const newThesis: Thesis = {
         id: `m_${Date.now()}`,
         authorId: user.id,
         authorName: user.name,
-        supervisorName: formData.supervisor || 'Unassigned Faculty',
-        title: formData.title,
-        abstract: formData.abstract,
+        supervisorName: formData.supervisor.trim(),
+        coResearchers: coResearchers,
+        title: formData.title.trim(),
+        abstract: formData.abstract.trim(),
         department: formData.department || 'General Academic',
         year: new Date().getFullYear().toString(),
         status: ThesisStatus.PENDING,
         submissionDate: new Date().toLocaleDateString(),
         fileUrl: fileDataUrl,
-        fileName: file?.name,
+        fileName: file.name,
         keywords: [],
         reviews: [],
         versions: [{
           id: `v1_${Date.now()}`,
           timestamp: new Date().toLocaleString(),
-          title: formData.title,
-          abstract: formData.abstract,
-          fileName: file?.name,
+          title: formData.title.trim(),
+          abstract: formData.abstract.trim(),
+          fileName: file.name,
           fileUrl: fileDataUrl,
           changeNote: "Initial Ingress"
         }]
       };
 
-      console.log("Attempting to save manuscript to vault...");
-      updateTheses([...all, newThesis]);
+      console.log("Committing manuscript to centralized vault...");
+      submitNewThesis(newThesis);
       
       setIsUploading(false);
       setStep(3);
@@ -110,7 +139,7 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
       console.error("Submission Failure Detail:", err);
       
       if (err.message === 'QUOTA_FULL') {
-        alert("Browser Storage Full: Your manuscript is valid, but the browser's 5MB local storage limit has been reached. Please go to Settings and 'Clear Local Cache' to make room.");
+        alert("Vault Error: Your manuscript is valid, but the browser's 5MB local storage limit has been reached. Please go to Settings and 'Clear Local Cache' to make room.");
       } else {
         alert(`Ingress Error: ${err.message || "The system encountered an unknown error during upload."}`);
       }
@@ -188,8 +217,44 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Supervisor</label>
-                  <input value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white outline-none transition-all text-sm" placeholder="Faculty Advisor name..." />
+                  <input required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white outline-none transition-all text-sm" placeholder="Faculty Advisor name..." />
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Authorship Type</label>
+                  <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <button 
+                      type="button"
+                      onClick={() => setIsIndependent(true)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isIndependent ? 'bg-white shadow-sm text-indigo-900' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      <UserIcon size={12} /> Independent
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setIsIndependent(false)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${!isIndependent ? 'bg-white shadow-sm text-indigo-900' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      <Users size={12} /> Collaborative
+                    </button>
+                  </div>
+                </div>
+
+                {!isIndependent && (
+                  <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                      <Users size={10} /> Co-Authors
+                    </label>
+                    <input 
+                      required={!isIndependent}
+                      value={formData.coAuthors} 
+                      onChange={e => setFormData({...formData, coAuthors: e.target.value})} 
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white outline-none transition-all text-sm" 
+                      placeholder="Names separated by commas..." 
+                    />
+                    <p className="text-[8px] text-slate-400 font-medium px-1 italic">e.g. "Jane Doe, John Smith"</p>
+                  </div>
+                )}
               </div>
               <button type="submit" disabled={isUploading} className="w-full py-3.5 bg-indigo-900 text-white rounded-xl font-bold hover:bg-slate-900 flex items-center justify-center gap-2 transition-all shadow-md">
                 {isUploading ? <Loader2 className="animate-spin" size={20} /> : <><Send size={18} /> Commit Record</>}
