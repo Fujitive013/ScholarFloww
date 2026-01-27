@@ -1,0 +1,8 @@
+{
+  "name": "ScholarFlow: Thesis Management Platform",
+  "description": "A comprehensive academic portal for managing the thesis lifecycle, featuring milestone tracking, supervisor collaboration, and AI-powered research assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
