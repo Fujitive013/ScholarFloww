@@ -16,7 +16,9 @@ import {
   BookOpen,
   Send,
   Maximize2,
-  FileText
+  FileText,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 
 interface SubmitThesisProps {
@@ -26,6 +28,7 @@ interface SubmitThesisProps {
 const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(1);
   const [isCollaborative, setIsCollaborative] = useState<boolean | null>(null);
@@ -63,12 +66,18 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
         return;
       }
 
+      setIsValidating(true);
       const url = URL.createObjectURL(selectedFile);
       setFile(selectedFile);
       setPreviewUrl(url);
-      dispatchToast("Manuscript integrity verified.", "success");
       
-      // Clear input so same file can be re-selected if needed
+      // Auto-advance logic: Give user a moment to see the validation then move to workspace
+      setTimeout(() => {
+        setIsValidating(false);
+        setStep(2);
+        dispatchToast("Manuscript integrity verified. Workspace active.", "success");
+      }, 800);
+      
       e.target.value = '';
     }
   };
@@ -152,192 +161,198 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
   };
 
   return (
-    <div className={`mx-auto ${step === 2 ? 'max-w-none' : 'max-w-4xl'} transition-all duration-500`}>
-      {/* Header (Hidden in Workspace Step 2 on Desktop) */}
-      <div className={`text-center space-y-3 px-4 mb-8 sm:mb-12 ${step === 2 ? 'lg:hidden' : ''}`}>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Manuscript Ingress</h1>
-        <p className="text-slate-500 font-medium max-w-xl mx-auto text-sm sm:text-lg">Index your scholarly record for official institutional peer evaluation.</p>
-      </div>
+    <div className={`mx-auto ${step === 2 ? 'max-w-none' : 'max-w-4xl'} transition-all duration-700 ease-in-out`}>
+      {/* Header logic - stays visible for steps 1 and 3 */}
+      {step !== 2 && (
+        <div className="text-center space-y-3 px-4 mb-12 animate-in fade-in">
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">Manuscript Ingress</h1>
+          <p className="text-slate-500 font-medium max-w-xl mx-auto text-sm sm:text-lg">Digitally index your research for official Stellaris peer evaluation.</p>
+        </div>
+      )}
 
-      {/* Responsive Step Indicator */}
-      <div className={`flex items-center justify-between relative max-w-md mx-auto px-6 mb-12 ${step === 2 ? 'lg:hidden' : ''}`}>
-        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-200 -z-10 rounded-full"></div>
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex flex-col items-center gap-2 bg-slate-50 relative z-10 px-2">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold border-4 border-slate-50 transition-all shadow-md ${step >= s ? 'bg-indigo-900 text-white scale-110' : 'bg-white text-slate-300'}`}>
-              {s < step ? <CheckCircle2 size={18} /> : s}
+      {/* Step Indicator (Visible on steps 1 and 3) */}
+      {step !== 2 && (
+        <div className="flex items-center justify-between relative max-w-md mx-auto px-6 mb-16">
+          <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-200 -z-10 rounded-full"></div>
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="flex flex-col items-center gap-2 bg-slate-50 relative z-10 px-2">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold border-4 border-slate-50 transition-all shadow-md ${step >= s ? 'bg-indigo-900 text-white scale-110' : 'bg-white text-slate-300'}`}>
+                {s < step ? <CheckCircle2 size={20} /> : s}
+              </div>
+              <span className={`text-[10px] font-extrabold uppercase tracking-widest whitespace-nowrap hidden sm:block ${step >= s ? 'text-indigo-900' : 'text-slate-300'}`}>
+                {s === 1 ? 'Validation' : s === 2 ? 'Metadata' : 'Indexing'}
+              </span>
             </div>
-            <span className={`text-[8px] font-extrabold uppercase tracking-widest whitespace-nowrap hidden sm:block ${step >= s ? 'text-indigo-900' : 'text-slate-300'}`}>
-              {s === 1 ? 'Selection' : s === 2 ? 'Metadata' : 'Confirmation'}
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Step 1: File Selection */}
+      {/* Step 1: Initial Ingress Staging */}
       {step === 1 && (
-        <div className="bg-white p-8 sm:p-20 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 text-center animate-in fade-in slide-in-from-bottom-6 shadow-sm mx-4 sm:mx-0">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-900 mx-auto mb-10 shadow-inner">
-            <Upload size={40} />
+        <div className="bg-white p-8 sm:p-24 rounded-[3rem] sm:rounded-[5rem] border border-slate-200 text-center animate-in fade-in slide-in-from-bottom-8 shadow-sm mx-4 sm:mx-0 relative overflow-hidden">
+          {isValidating && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-in fade-in">
+              <div className="w-20 h-20 rounded-full border-4 border-indigo-100 border-t-indigo-900 animate-spin mb-6"></div>
+              <p className="text-sm font-extrabold text-indigo-900 uppercase tracking-widest">Validating Manuscript Integrity...</p>
+            </div>
+          )}
+          
+          <div className="w-24 h-24 sm:w-32 sm:h-32 bg-indigo-50 rounded-[3rem] flex items-center justify-center text-indigo-900 mx-auto mb-10 shadow-inner group-hover:scale-105 transition-transform duration-500">
+            <Upload size={48} className="animate-bounce" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 tracking-tight">Staging Ingress</h2>
-          <p className="text-slate-500 mb-12 max-w-sm mx-auto text-sm font-medium leading-relaxed">Please select the final PDF of your research manuscript for institutional indexing.</p>
+          <h2 className="text-3xl font-extrabold text-slate-900 mb-4 tracking-tight">Institutional Drop-Zone</h2>
+          <p className="text-slate-500 mb-12 max-w-sm mx-auto text-sm sm:text-base font-medium leading-relaxed">Select your final PDF manuscript. Our engine will automatically initialize a research workspace for you.</p>
           
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/pdf" />
           
-          {file ? (
-            <div className="space-y-8 animate-in zoom-in duration-300">
-              <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] flex items-center gap-6 border border-slate-100 max-w-md mx-auto shadow-inner group">
-                <div className="p-4 bg-indigo-900 text-white rounded-2xl shadow-xl"><FileCheck size={28} /></div>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-extrabold text-slate-800 truncate mb-1">{file.name}</p>
-                  <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Integrity Verified</p>
-                </div>
-                <button onClick={() => {setFile(null); setPreviewUrl(null);}} className="p-3 text-slate-300 hover:text-rose-500 transition-colors bg-white rounded-xl shadow-sm">
-                  <X size={20} />
-                </button>
-              </div>
-              <button 
-                onClick={() => setStep(2)} 
-                className="w-full sm:w-auto px-16 py-5 bg-indigo-900 text-white rounded-[2rem] font-bold hover:bg-slate-900 transition-all shadow-2xl shadow-indigo-100 active:scale-95 text-base flex items-center justify-center gap-3 mx-auto"
-              >
-                Next: Assign Metadata <ChevronRight size={20} />
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full sm:w-auto px-12 py-5 bg-indigo-900 text-white rounded-[2rem] font-bold hover:bg-slate-900 transition-all shadow-xl shadow-indigo-100 active:scale-95 text-base"
-            >
-              Select PDF Manuscript
-            </button>
-          )}
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="group relative w-full sm:w-auto px-16 py-6 bg-indigo-900 text-white rounded-[2.5rem] font-extrabold hover:bg-slate-900 transition-all shadow-2xl shadow-indigo-100 active:scale-95 text-lg flex items-center justify-center gap-4 mx-auto overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            <FileText size={24} />
+            Initialize Ingress
+          </button>
+          
+          <div className="mt-12 flex items-center justify-center gap-8 opacity-40">
+            <div className="flex items-center gap-2"><ShieldCheck size={16} /><span className="text-[10px] font-bold uppercase tracking-widest">PDF Standard</span></div>
+            <div className="flex items-center gap-2"><Zap size={16} /><span className="text-[10px] font-bold uppercase tracking-widest">Auto-Initialize</span></div>
+          </div>
         </div>
       )}
 
       {/* Step 2: Workspace View (Split Screen) */}
       {step === 2 && (
-        <div className="flex flex-col lg:flex-row h-full min-h-[70vh] gap-6 px-4 sm:px-0 animate-in fade-in slide-in-from-right-8 duration-500">
+        <div className="flex flex-col lg:flex-row h-full min-h-[80vh] gap-6 px-4 sm:px-0 animate-in fade-in zoom-in duration-500">
           {/* Manuscript Viewer Panel */}
-          <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm flex flex-col h-[50vh] lg:h-auto min-h-[400px]">
-             <div className="p-5 bg-slate-50 border-b flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText size={18} className="text-indigo-900" />
-                  <span className="text-xs font-bold text-slate-700 truncate max-w-[200px] sm:max-w-md">{file?.name}</span>
+          <div className="flex-1 bg-white rounded-[3rem] border-2 border-slate-100 overflow-hidden shadow-2xl flex flex-col h-[50vh] lg:h-[80vh] group">
+             <div className="p-6 bg-slate-50 border-b flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-900 text-white rounded-2xl shadow-lg"><FileText size={20} /></div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Live Ingress Review</p>
+                    <p className="text-xs font-bold text-slate-800 truncate max-w-[150px] sm:max-w-md">{file?.name}</p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => window.open(previewUrl!, '_blank')} 
-                  className="p-2 text-slate-400 hover:text-indigo-900 bg-white rounded-lg border shadow-sm transition-all"
-                  title="Open Fullscreen"
+                  className="p-3 text-slate-400 hover:text-indigo-900 bg-white rounded-xl border-2 border-slate-50 shadow-sm transition-all hover:scale-110"
                 >
-                  <Maximize2 size={16} />
+                  <Maximize2 size={18} />
                 </button>
              </div>
-             <div className="flex-1 bg-slate-100 relative">
+             <div className="flex-1 bg-slate-800 relative">
                {previewUrl ? (
                  <iframe 
                    src={previewUrl} 
                    className="w-full h-full border-none bg-white" 
-                   title="Manuscript Review"
+                   title="Manuscript Review Engine"
                  />
                ) : (
-                 <div className="flex items-center justify-center h-full text-slate-300 italic text-sm">Preview Unavailable</div>
+                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4">
+                   <Loader2 size={32} className="animate-spin" />
+                   <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Synchronizing Document...</p>
+                 </div>
                )}
              </div>
           </div>
 
           {/* Metadata Form Panel */}
-          <div className="flex-1 lg:max-w-xl bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col">
-            <div className="p-6 sm:p-8 bg-slate-50 border-b flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <button type="button" onClick={() => setStep(1)} className="p-2 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-indigo-900">
+          <div className="flex-1 lg:max-w-xl bg-white rounded-[3rem] border-2 border-indigo-50 shadow-2xl overflow-hidden flex flex-col h-[80vh]">
+            <div className="p-6 sm:p-10 bg-indigo-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                 <button type="button" onClick={() => setStep(1)} className="p-3 hover:bg-white/10 rounded-2xl transition-all text-indigo-200 hover:text-white border border-white/10">
                     <ArrowLeft size={20} />
                  </button>
-                 <h2 className="text-lg font-bold text-slate-800">Assign Metadata</h2>
+                 <div>
+                   <h2 className="text-xl font-bold tracking-tight">Assign Metadata</h2>
+                   <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">ScholarFlow Ingress Engine</p>
+                 </div>
               </div>
-              <div className="px-3 py-1 bg-indigo-900 text-white rounded-lg text-[9px] font-bold uppercase tracking-widest">Step 2 of 3</div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8">
-              <div className="space-y-6">
-                <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-10">
+              <div className="space-y-8">
+                <div className="space-y-3">
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Research Title</label>
-                  <div className="relative">
-                    <BookOpen className="absolute left-4 top-4 text-slate-300" size={18} />
+                  <div className="relative group">
+                    <BookOpen className="absolute left-5 top-5 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
                     <input 
                       required 
                       value={formData.title} 
                       onChange={e => setFormData({...formData, title: e.target.value})} 
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white outline-none transition-all text-slate-900 font-bold text-sm shadow-inner focus:ring-4 focus:ring-indigo-50" 
-                      placeholder="Enter institutional research title..." 
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.8rem] focus:bg-white focus:border-indigo-900 outline-none transition-all text-slate-900 font-extrabold text-sm shadow-inner" 
+                      placeholder="Institutional research title..." 
                     />
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Academic Abstract</label>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Academic Abstract</label>
+                    <button 
+                      type="button" 
+                      onClick={handleAISuggest} 
+                      disabled={!formData.title || !formData.abstract || isUploading} 
+                      className="flex items-center gap-2 text-[9px] font-extrabold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all uppercase tracking-widest disabled:opacity-30"
+                    >
+                      <Sparkles size={12} /> AI Optimize
+                    </button>
+                  </div>
                   <textarea 
                     required 
-                    rows={5} 
+                    rows={6} 
                     value={formData.abstract} 
                     onChange={e => setFormData({...formData, abstract: e.target.value})} 
-                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white outline-none transition-all resize-none text-slate-700 text-sm leading-relaxed shadow-inner focus:ring-4 focus:ring-indigo-50" 
-                    placeholder="Reference your manuscript to refine the scope and outcomes..." 
+                    className="w-full px-8 py-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] focus:bg-white focus:border-indigo-900 outline-none transition-all resize-none text-slate-700 text-sm leading-relaxed shadow-inner" 
+                    placeholder="Reference the left panel to refine your core methodologies and expected outcomes..." 
                   />
-                  <button 
-                    type="button" 
-                    onClick={handleAISuggest} 
-                    disabled={!formData.title || !formData.abstract || isUploading} 
-                    className="flex items-center gap-2 text-[10px] font-extrabold text-indigo-900 bg-indigo-50 px-4 py-2.5 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-colors uppercase tracking-widest disabled:opacity-30"
-                  >
-                    <Sparkles size={14} /> ScholarAI: Optimize Ingress Data
-                  </button>
                 </div>
 
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-inner">
+                <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
                   <div className="text-center sm:text-left">
                     <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                      <Users size={16} className="text-indigo-900" /> Research Mode
+                      <Users size={18} className="text-indigo-900" /> Research Mode
                     </h3>
                   </div>
-                  <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200">
-                    <button type="button" onClick={() => setIsCollaborative(true)} className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${isCollaborative === true ? 'bg-indigo-900 text-white shadow-md' : 'text-slate-400'}`}>Collaborative</button>
-                    <button type="button" onClick={() => setIsCollaborative(false)} className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${isCollaborative === false ? 'bg-indigo-900 text-white shadow-md' : 'text-slate-400'}`}>Independent</button>
+                  <div className="flex bg-white p-1.5 rounded-2xl shadow-inner border border-slate-200">
+                    <button type="button" onClick={() => setIsCollaborative(true)} className={`px-6 py-2.5 rounded-xl text-[10px] font-bold transition-all ${isCollaborative === true ? 'bg-indigo-900 text-white shadow-lg' : 'text-slate-400'}`}>Collaborative</button>
+                    <button type="button" onClick={() => setIsCollaborative(false)} className={`px-6 py-2.5 rounded-xl text-[10px] font-bold transition-all ${isCollaborative === false ? 'bg-indigo-900 text-white shadow-lg' : 'text-slate-400'}`}>Independent</button>
                   </div>
                 </div>
 
                 {isCollaborative && (
                   <div className="animate-in slide-in-from-top-4">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Co-Investigators</label>
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-2">Co-Investigators</label>
                     <input 
                       required={isCollaborative} 
                       value={formData.coResearchersRaw} 
                       onChange={e => setFormData({...formData, coResearchersRaw: e.target.value})} 
-                      className="w-full px-4 py-4 mt-2 bg-white border border-slate-200 rounded-2xl text-slate-900 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-50 transition-all shadow-sm" 
+                      className="w-full px-6 py-5 mt-2 bg-white border-2 border-slate-100 rounded-2xl text-slate-900 text-xs font-extrabold outline-none focus:border-indigo-900 transition-all shadow-sm" 
                       placeholder="Separate full names with commas..." 
                     />
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Faculty Department</label>
-                    <input required value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-slate-800 font-bold text-xs focus:bg-white shadow-inner transition-all" placeholder="e.g. Quantum Computing" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-2">Department</label>
+                    <input required value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none text-slate-800 font-extrabold text-xs focus:bg-white shadow-inner focus:border-indigo-900 transition-all" placeholder="e.g. Physics" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Primary Advisor</label>
-                    <input required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none text-slate-800 font-bold text-xs focus:bg-white shadow-inner transition-all" placeholder="Dr. Full Name" />
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-2">Primary Advisor</label>
+                    <input required value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})} className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none text-slate-800 font-extrabold text-xs focus:bg-white shadow-inner focus:border-indigo-900 transition-all" placeholder="Dr. Full Name" />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 pb-8">
+              <div className="pt-8 pb-12">
                 <button 
                   type="submit" 
                   disabled={isUploading} 
-                  className="w-full py-5 bg-indigo-900 text-white rounded-2xl font-bold hover:bg-slate-900 flex items-center justify-center gap-3 shadow-xl active:scale-95 text-base transition-all"
+                  className="w-full py-6 bg-indigo-900 text-white rounded-[2.5rem] font-extrabold hover:bg-slate-900 flex items-center justify-center gap-4 shadow-2xl shadow-indigo-100 active:scale-95 text-lg transition-all"
                 >
-                  {isUploading ? <Loader2 className="animate-spin" size={20} /> : <><Send size={20} /> Commit Manuscript to Queue</>}
+                  {isUploading ? <Loader2 className="animate-spin" size={24} /> : <><Send size={24} /> Commit to Evaluation Queue</>}
                 </button>
               </div>
             </form>
@@ -347,15 +362,15 @@ const SubmitThesis: React.FC<SubmitThesisProps> = ({ user }) => {
 
       {/* Step 3: Success Confirmation */}
       {step === 3 && (
-        <div className="bg-white p-10 sm:p-24 rounded-[3rem] sm:rounded-[5rem] border border-slate-200 text-center animate-in zoom-in duration-700 shadow-2xl mx-4 sm:mx-0">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 bg-emerald-50 text-emerald-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 ring-[20px] ring-emerald-50/50 shadow-2xl">
-            <CheckCircle2 size={56} />
+        <div className="bg-white p-12 sm:p-32 rounded-[4rem] sm:rounded-[6rem] border border-slate-200 text-center animate-in zoom-in duration-700 shadow-2xl mx-4 sm:mx-0">
+          <div className="w-28 h-28 sm:w-36 sm:h-36 bg-emerald-50 text-emerald-600 rounded-[3rem] flex items-center justify-center mx-auto mb-12 ring-[24px] ring-emerald-50/50 shadow-2xl">
+            <CheckCircle2 size={64} />
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Institutional Ingress Successful</h2>
-          <p className="text-slate-500 mb-14 max-w-sm mx-auto leading-relaxed text-sm sm:text-lg font-medium">Your manuscript has been indexed and successfully routed to the Faculty Evaluation Queue.</p>
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-             <button onClick={() => window.location.hash = '#/my-thesis'} className="flex-1 py-5 bg-indigo-900 text-white rounded-[2rem] font-extrabold hover:bg-slate-900 transition-all shadow-2xl active:scale-95">Open Scholarly Portfolio</button>
-             <button onClick={() => {setStep(1); setFile(null); setPreviewUrl(null);}} className="flex-1 py-5 bg-white text-slate-500 border border-slate-200 rounded-[2rem] font-extrabold hover:bg-slate-50 transition-all">Submit Another Record</button>
+          <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">Institutional Ingress Successful</h2>
+          <p className="text-slate-500 mb-16 max-w-sm mx-auto leading-relaxed text-base sm:text-xl font-medium">Your research manuscript is now indexed and successfully routed to the Faculty Evaluation Queue.</p>
+          <div className="flex flex-col sm:flex-row gap-6 max-w-lg mx-auto">
+             <button onClick={() => window.location.hash = '#/my-thesis'} className="flex-1 py-6 bg-indigo-900 text-white rounded-[2.5rem] font-extrabold hover:bg-slate-900 transition-all shadow-2xl active:scale-95 text-lg">Open Scholarly Portfolio</button>
+             <button onClick={() => {setStep(1); setFile(null); setPreviewUrl(null);}} className="flex-1 py-6 bg-white text-slate-500 border-2 border-slate-200 rounded-[2.5rem] font-extrabold hover:bg-slate-50 transition-all text-lg">Submit Another Record</button>
           </div>
         </div>
       )}
