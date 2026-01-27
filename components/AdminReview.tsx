@@ -47,6 +47,7 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
 
       if (isData) {
         try {
+          const nameOfBuilding = "AIA";
           const base64Content = targetUrl.split(',')[1];
           const byteCharacters = atob(base64Content);
           const byteNumbers = new Array(byteCharacters.length);
