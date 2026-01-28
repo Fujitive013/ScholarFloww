@@ -1,7 +1,8 @@
 
-import { Thesis, ThesisStatus } from '../types';
+import { Thesis, ThesisStatus, Message } from '../types';
 
 const STORAGE_KEY = 'stellaris_vault_v1_theses';
+const MESSAGES_KEY = 'stellaris_vault_v1_messages';
 
 export const INITIAL_THESES: Thesis[] = [
   {
@@ -46,16 +47,10 @@ export const getStorageUsage = () => {
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key) {
-      total += (localStorage.getItem(key) || '').length * 2; // UTF-16 strings use 2 bytes per char
+      total += (localStorage.getItem(key) || '').length * 2; 
     }
   }
   return total;
-};
-
-// Returns approximate bytes used ONLY by this app
-export const getAppStorageUsage = () => {
-  const data = localStorage.getItem(STORAGE_KEY) || '';
-  return data.length * 2;
 };
 
 export const getTheses = (): Thesis[] => {
@@ -79,9 +74,7 @@ export const updateTheses = (newTheses: Thesis[]) => {
     localStorage.setItem(STORAGE_KEY, dataString);
     window.dispatchEvent(new Event('thesesUpdated'));
   } catch (err: any) {
-    console.error("Storage Update Failed:", err);
-    // Code 22 is the standard QuotaExceededError in most browsers
-    if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.message.includes('quota')) {
+    if (err.name === 'QuotaExceededError' || err.code === 22) {
       throw new Error("QUOTA_FULL");
     }
     throw err;
@@ -93,12 +86,70 @@ export const submitNewThesis = (thesis: Thesis) => {
   updateTheses([...current, thesis]);
 };
 
+// Messaging Services
+export const getMessages = (userId: string, otherId: string): Message[] => {
+  const stored = localStorage.getItem(MESSAGES_KEY);
+  if (!stored) return [];
+  const all: Message[] = JSON.parse(stored);
+  return all.filter(m => 
+    (m.senderId === userId && m.receiverId === otherId) || 
+    (m.senderId === otherId && m.receiverId === userId)
+  ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+};
+
+export const markMessagesAsRead = (userId: string, otherId: string) => {
+  const stored = localStorage.getItem(MESSAGES_KEY);
+  if (!stored) return;
+  const all: Message[] = JSON.parse(stored);
+  let changed = false;
+  const updated = all.map(m => {
+    if (m.receiverId === userId && m.senderId === otherId && !m.read) {
+      changed = true;
+      return { ...m, read: true };
+    }
+    return m;
+  });
+  if (changed) {
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('messagesUpdated'));
+  }
+};
+
+export const getUnreadSendersCount = (userId: string): number => {
+  const stored = localStorage.getItem(MESSAGES_KEY);
+  if (!stored) return 0;
+  const all: Message[] = JSON.parse(stored);
+  const unreadSenders = new Set(
+    all
+      .filter(m => m.receiverId === userId && !m.read)
+      .map(m => m.senderId)
+  );
+  return unreadSenders.size;
+};
+
+export const getUnreadFromContact = (userId: string, contactId: string): boolean => {
+  const stored = localStorage.getItem(MESSAGES_KEY);
+  if (!stored) return false;
+  const all: Message[] = JSON.parse(stored);
+  return all.some(m => m.receiverId === userId && m.senderId === contactId && !m.read);
+};
+
+export const saveMessage = (msg: Message) => {
+  const stored = localStorage.getItem(MESSAGES_KEY);
+  const all: Message[] = stored ? JSON.parse(stored) : [];
+  // Default to unread when saving
+  const newMsg = { ...msg, read: false };
+  localStorage.setItem(MESSAGES_KEY, JSON.stringify([...all, newMsg]));
+  window.dispatchEvent(new Event('messagesUpdated'));
+};
+
 export const clearAppPath = () => {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(MESSAGES_KEY);
   window.location.reload();
 };
 
 export const nuclearReset = () => {
-  localStorage.clear(); // Wipes everything on localhost
+  localStorage.clear();
   window.location.reload();
 };

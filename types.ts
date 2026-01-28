@@ -71,4 +71,5 @@ export interface Message {
   receiverId: string;
   text: string;
   timestamp: Date;
+  read?: boolean;
 }
