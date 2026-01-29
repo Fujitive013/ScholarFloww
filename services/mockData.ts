@@ -68,6 +68,23 @@ export const getTheses = (): Thesis[] => {
   return INITIAL_THESES;
 };
 
+/**
+ * Prunes the file content from older versions of theses to save space while keeping metadata
+ */
+const pruneTheses = (theses: Thesis[]): Thesis[] => {
+  return theses.map(t => ({
+    ...t,
+    versions: t.versions?.map((v, index) => {
+      // Keep only metadata for older versions, remove large base64 strings
+      // We keep the fileUrl ONLY for the most recent version in the history stack
+      if (t.versions && index < t.versions.length - 1) {
+        return { ...v, fileUrl: undefined }; 
+      }
+      return v;
+    })
+  }));
+};
+
 export const updateTheses = (newTheses: Thesis[]) => {
   try {
     const dataString = JSON.stringify(newTheses);
@@ -75,7 +92,15 @@ export const updateTheses = (newTheses: Thesis[]) => {
     window.dispatchEvent(new Event('thesesUpdated'));
   } catch (err: any) {
     if (err.name === 'QuotaExceededError' || err.code === 22) {
-      throw new Error("QUOTA_FULL");
+      // If quota exceeded, try pruning older versions and retry once
+      try {
+        const pruned = pruneTheses(newTheses);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+        window.dispatchEvent(new Event('thesesUpdated'));
+        return;
+      } catch (innerErr) {
+        throw new Error("QUOTA_FULL");
+      }
     }
     throw err;
   }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Thesis, ThesisStatus, Review } from '../types';
 import { getTheses, updateTheses } from '../services/mockData';
+import DocumentReaderModal from './DocumentReaderModal';
 import { 
   CheckCircle, 
   SearchX,
@@ -10,20 +11,22 @@ import {
   Ban,
   Eye,
   FileText,
-  ExternalLink,
   Loader2,
-  Maximize2,
-  AlertTriangle
+  HelpCircle,
+  ShieldCheck,
+  History,
+  ExternalLink
 } from 'lucide-react';
+import { showToast } from '../App';
 
 const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) => {
   const [queue, setQueue] = useState<Thesis[]>([]);
   const [reviewingThesis, setReviewingThesis] = useState<Thesis | null>(null);
   const [showManuscript, setShowManuscript] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [isExternal, setIsExternal] = useState(false);
+  const [showConfirmAction, setShowConfirmAction] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [recommendation, setRecommendation] = useState<'APPROVE' | 'REVISE' | 'REJECT'>('APPROVE');
+  const [evalBlobUrl, setEvalBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const load = () => {
@@ -35,15 +38,13 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
     return () => window.removeEventListener('thesesUpdated', load);
   }, []);
 
+  // Handle Blob conversion for the evaluation side-pane
   useEffect(() => {
-    const targetUrl = showManuscript || reviewingThesis?.fileUrl;
-    if (targetUrl) {
-      const isData = targetUrl.startsWith('data:');
-      setIsExternal(!isData && targetUrl.startsWith('http'));
-
-      if (isData) {
+    if (reviewingThesis?.fileUrl) {
+      const url = reviewingThesis.fileUrl;
+      if (url.startsWith('data:')) {
         try {
-          const base64Content = targetUrl.split(',')[1];
+          const base64Content = url.split(',')[1];
           const byteCharacters = atob(base64Content);
           const byteNumbers = new Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
@@ -51,29 +52,22 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
           }
           const byteArray = new Uint8Array(byteNumbers);
           const blob = new Blob([byteArray], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          setBlobUrl(url);
-          return () => URL.revokeObjectURL(url);
+          const objectUrl = URL.createObjectURL(blob);
+          setEvalBlobUrl(objectUrl);
+          return () => URL.revokeObjectURL(objectUrl);
         } catch (e) {
-          console.error("PDF generation error", e);
-          setBlobUrl(targetUrl);
+          setEvalBlobUrl(url);
         }
       } else {
-        setBlobUrl(targetUrl);
+        setEvalBlobUrl(url);
       }
     } else {
-      setBlobUrl(null);
+      setEvalBlobUrl(null);
     }
-  }, [showManuscript, reviewingThesis]);
+  }, [reviewingThesis]);
 
-  const openNative = () => {
-    if (blobUrl) window.open(blobUrl, '_blank');
-  };
-
-  const handleSubmitReview = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewingThesis || !reviewNote) return;
-
+  const handleFinalCommit = () => {
+    if (!reviewingThesis) return;
     const newReview: Review = {
       id: `rev_${Date.now()}`,
       reviewerId: 'reviewer-1',
@@ -82,21 +76,13 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
       date: new Date().toLocaleDateString(),
       recommendation: recommendation
     };
-
     const newStatus = recommendation === 'APPROVE' ? ThesisStatus.REVIEWED : 
                      recommendation === 'REVISE' ? ThesisStatus.REVISION_REQUIRED : 
                      ThesisStatus.REJECTED;
-
     const all = getTheses();
-    updateTheses(all.map(t => t.id === reviewingThesis.id ? { 
-      ...t, 
-      status: newStatus, 
-      reviews: [...(t.reviews || []), newReview] 
-    } : t));
-    
-    setReviewingThesis(null);
-    setReviewNote('');
-    setRecommendation('APPROVE');
+    updateTheses(all.map(t => t.id === reviewingThesis.id ? { ...t, status: newStatus, reviews: [...(t.reviews || []), newReview] } : t));
+    setReviewingThesis(null); setReviewNote(''); setRecommendation('APPROVE'); setShowConfirmAction(false);
+    showToast(`Evaluation committed: ${recommendation}`);
   };
 
   const filteredQueue = queue.filter(item => {
@@ -116,140 +102,126 @@ const AdminReview: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) =
       <div className="space-y-4">
         {filteredQueue.length > 0 ? (
           filteredQueue.map((item) => (
-            <div key={item.id} className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all hover:shadow-md hover:border-indigo-100">
+            <div key={item.id} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all hover:shadow-md hover:border-indigo-100">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                   <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-indigo-100">
-                     {item.department}
-                   </span>
-                </div>
+                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-indigo-100 mb-2 inline-block">{item.department}</span>
                 <h3 className="text-lg font-bold text-slate-800 mb-1 leading-tight">{item.title}</h3>
                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">{item.authorName}</p>
               </div>
-              
               <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-                <button 
-                  onClick={() => setShowManuscript(item.fileUrl || "")} 
-                  className="flex-1 sm:flex-none p-4 bg-slate-100 text-slate-600 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-indigo-100 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2"
-                >
-                  <Eye size={20} /> <span className="sm:hidden font-bold text-xs">View</span>
-                </button>
-                <button 
-                  onClick={() => setReviewingThesis(item)} 
-                  className="flex-[2] sm:flex-none px-8 py-4 bg-indigo-600 text-white text-xs font-bold rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-all whitespace-nowrap"
-                >
-                  Assess Record
-                </button>
+                <button onClick={() => setShowManuscript(item.fileUrl || "")} className="p-4 bg-slate-100 text-slate-600 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-indigo-100 rounded-2xl transition-all shadow-sm active:scale-95"><Eye size={20} /></button>
+                <button onClick={() => setReviewingThesis(item)} className="px-8 py-4 bg-indigo-600 text-white text-xs font-bold rounded-2xl shadow-lg active:scale-95 transition-all">Assess Record</button>
               </div>
             </div>
           ))
         ) : (
-          <div className="py-24 text-center bg-white rounded-3xl border border-slate-200 shadow-inner">
-            <SearchX size={48} className="mx-auto text-slate-200 mb-6" />
-            <h3 className="text-xl font-bold text-slate-800">Evaluations Complete</h3>
-            <p className="text-slate-400 text-sm mt-1 font-medium">The Faculty Evaluation Queue is currently cleared.</p>
-          </div>
+          <div className="py-24 text-center bg-white rounded-[2.5rem] border border-slate-200 shadow-inner"><SearchX size={48} className="mx-auto text-slate-200 mb-6" /><h3 className="text-xl font-bold text-slate-800">Evaluations Complete</h3></div>
         )}
       </div>
 
-      {showManuscript && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-6xl h-[90vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 sm:p-6 bg-slate-50 border-b flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2"><FileText size={18} /> Evaluator Verification Terminal</h3>
-              <div className="flex gap-2">
-                <button onClick={openNative} className="hidden sm:flex p-2 px-4 bg-white border rounded-xl text-xs font-bold items-center gap-2 hover:bg-slate-50"><Maximize2 size={14} /> Native Reader</button>
-                <button onClick={() => setShowManuscript(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-all bg-white rounded-full shadow-sm"><X size={24} /></button>
-              </div>
-            </div>
-            <div className="flex-1 bg-slate-100 flex items-center justify-center">
-              {isExternal ? (
-                <div className="text-center p-12">
-                   <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle size={32} /></div>
-                   <h4 className="text-lg font-bold mb-2">Institutional Embed Restricted</h4>
-                   <p className="text-sm text-slate-500 mb-6">This external research source prevents embedded evaluations.</p>
-                   <button onClick={openNative} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center gap-2 mx-auto"><ExternalLink size={18} /> Evaluate Source Directly</button>
-                </div>
-              ) : blobUrl ? (
-                <iframe key={blobUrl} src={blobUrl} className="w-full h-full border-none bg-white" title="Manuscript Evaluation" />
-              ) : (
-                <Loader2 className="animate-spin text-indigo-600" size={32} />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Evaluation Interface Modal */}
       {reviewingThesis && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white w-full max-w-6xl rounded-2xl sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row h-[95vh] sm:max-h-[95vh]">
-            <div className="hidden lg:flex flex-[1.4] bg-slate-100 border-r flex-col">
-              <div className="p-4 bg-white border-b flex justify-between items-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scholarly Manuscript</span>
-                <button onClick={openNative} className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"><Maximize2 size={12} /> External View</button>
+          <div className="bg-white w-full max-w-[95vw] sm:max-w-6xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row h-[95vh] animate-in zoom-in duration-300">
+            <div className="hidden lg:flex flex-[1.4] bg-slate-100 border-r border-slate-200 flex-col">
+              <div className="p-4 bg-indigo-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Evidence Repository</span>
+                  </div>
+                  <div className="w-px h-6 bg-white/20 mx-2"></div>
+                  <button 
+                    onClick={() => evalBlobUrl && window.open(evalBlobUrl, '_blank')}
+                    className="flex items-center gap-1.5 text-[8px] font-bold uppercase tracking-widest bg-white/10 px-3 py-1.5 rounded-lg hover:bg-white/20 transition-all active:scale-95"
+                  >
+                    <ExternalLink size={12} /> Native Viewer
+                  </button>
+                </div>
               </div>
               <div className="flex-1 bg-slate-50 relative overflow-hidden">
-                {isExternal ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                    <AlertTriangle size={24} className="text-amber-500 mb-2" />
-                    <p className="text-xs font-bold text-slate-800 uppercase tracking-widest">External Evaluate Only</p>
-                    <button onClick={openNative} className="mt-4 px-6 py-3 bg-indigo-600 text-white text-[10px] font-bold rounded-xl uppercase shadow-lg">Open Native Repository</button>
-                  </div>
-                ) : blobUrl ? (
-                  <iframe key={blobUrl} src={blobUrl} className="w-full h-full border-none bg-white" title="Evaluation Frame" />
-                ) : (
-                  <div className="h-full flex items-center justify-center flex-col gap-3 text-slate-400">
-                    <Loader2 className="animate-spin" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Fetching Ingress Data...</span>
-                  </div>
-                )}
+                <iframe src={evalBlobUrl || reviewingThesis.fileUrl} className="w-full h-full border-none bg-white" title="Evaluation Frame" />
               </div>
             </div>
             <div className="flex-1 flex flex-col bg-white overflow-hidden">
-              <div className="p-6 sm:p-8 border-b bg-slate-50 flex items-center justify-between">
-                <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">Faculty Evaluator Panel</h3>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 truncate">Investigator: {reviewingThesis.authorName}</p>
-                </div>
-                <button onClick={() => setReviewingThesis(null)}><X size={24} className="text-slate-400 hover:text-rose-500 transition-colors" /></button>
+              <div className="p-6 sm:p-8 bg-indigo-900 text-white flex items-center justify-between shrink-0 shadow-lg">
+                <div><h3 className="text-lg font-bold tracking-tight">Faculty Evaluator Panel</h3><p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest mt-1">Investigator: {reviewingThesis.authorName}</p></div>
+                <button onClick={() => setReviewingThesis(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"><X size={24} /></button>
               </div>
-              <form onSubmit={handleSubmitReview} className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-6 sm:space-y-8">
+              <form onSubmit={(e) => { e.preventDefault(); setShowConfirmAction(true); }} className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8">
+                {reviewingThesis.status === ThesisStatus.UNDER_REVIEW && reviewingThesis.versions && reviewingThesis.versions.length > 0 && (
+                   <div className="p-5 bg-amber-50 border border-amber-200 rounded-3xl animate-in slide-in-from-top-4">
+                     <div className="flex items-center gap-2 mb-2 text-amber-700">
+                       <History size={16} />
+                       <p className="text-[10px] font-bold uppercase tracking-widest">Candidate Change Note (Revision v{reviewingThesis.versions.length})</p>
+                     </div>
+                     <p className="text-[11px] text-amber-900 italic font-medium leading-relaxed whitespace-pre-wrap">
+                       "{reviewingThesis.versions[reviewingThesis.versions.length - 1].changeNote}"
+                     </p>
+                   </div>
+                )}
+
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Evaluation Remarks</label>
-                  <textarea required value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} rows={6} placeholder="Enter your academic feedback and critique..." className="w-full p-4 sm:p-8 bg-slate-50 border rounded-2xl sm:rounded-3xl text-sm focus:bg-white transition-all shadow-inner outline-none focus:ring-4 focus:ring-indigo-50 leading-relaxed" />
+                  <textarea required value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} rows={6} className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm focus:bg-white outline-none focus:ring-4 focus:ring-indigo-50 leading-relaxed font-medium" placeholder="Synthesize findings and specific feedback for the candidate..." />
                 </div>
+                
                 <div className="space-y-4">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Assessment Recommendation</label>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <DecisionBtn type="AUTH" active={recommendation==='APPROVE'} onClick={() => setRecommendation('APPROVE')} icon={<CheckCircle size={20} />} color="emerald" />
-                    <DecisionBtn type="REVISE" active={recommendation==='REVISE'} onClick={() => setRecommendation('REVISE')} icon={<RotateCcw size={20} />} color="amber" />
-                    <DecisionBtn type="REJECT" active={recommendation==='REJECT'} onClick={() => setRecommendation('REJECT')} icon={<Ban size={20} />} color="rose" />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Assessment Recommendation</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <DecisionBtn active={recommendation==='APPROVE'} onClick={() => setRecommendation('APPROVE')} icon={<CheckCircle size={20} />} label="APPROVE" color="emerald" />
+                    <DecisionBtn active={recommendation==='REVISE'} onClick={() => setRecommendation('REVISE')} icon={<RotateCcw size={20} />} label="REVISE" color="amber" />
+                    <DecisionBtn active={recommendation==='REJECT'} onClick={() => setRecommendation('REJECT')} icon={<Ban size={20} />} label="REJECT" color="rose" />
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                  <button type="button" onClick={() => setReviewingThesis(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-all text-sm">Cancel</button>
-                  <button type="submit" className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 text-sm">Commit Evaluation</button>
+                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-50">
+                  <button type="button" onClick={() => setReviewingThesis(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold text-[10px] uppercase">Cancel</button>
+                  <button type="submit" className="flex-[2] py-4 bg-indigo-900 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 text-[10px] uppercase tracking-wider active:scale-95 transition-all">Commit Evaluation</button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
+
+      {showConfirmAction && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden text-center animate-in zoom-in duration-300 flex flex-col">
+            <div className="p-5 bg-indigo-900 text-white flex items-center justify-between shrink-0"><h3 className="text-sm font-bold flex items-center gap-2"><ShieldCheck size={18} /> Confirm Evaluation</h3><button onClick={() => setShowConfirmAction(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"><X size={20} /></button></div>
+            <div className="p-8 space-y-6">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-2 ${recommendation === 'APPROVE' ? 'bg-emerald-50 text-emerald-600' : recommendation === 'REVISE' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}><HelpCircle size={32} /></div>
+              <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Commit Action?</h3>
+              <p className="text-[11px] text-slate-500 leading-relaxed px-4">Are you sure you want to commit a <span className="font-bold">{recommendation}</span> decision? This will be permanently logged.</p>
+              <div className="flex flex-col gap-2 pt-2">
+                <button onClick={handleFinalCommit} className={`w-full py-4 text-white rounded-2xl font-bold text-[10px] uppercase shadow-lg transition-all active:scale-95 ${recommendation === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : recommendation === 'REVISE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-rose-600 hover:bg-rose-700'}`}>Yes, Commit {recommendation}</button>
+                <button onClick={() => setShowConfirmAction(false)} className="w-full py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-bold text-[10px] uppercase active:scale-95">Review Remarks</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Use the shared Reader Modal */}
+      <DocumentReaderModal 
+        isOpen={!!showManuscript} 
+        onClose={() => setShowManuscript(null)} 
+        fileUrl={showManuscript || undefined} 
+        title="Verification Terminal"
+      />
     </div>
   );
 };
 
-const DecisionBtn = ({ type, active, onClick, icon, color }: any) => {
+const DecisionBtn = ({ active, onClick, icon, label, color }: any) => {
   const activeStyles = {
-    emerald: 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-4 ring-emerald-50',
-    amber: 'bg-amber-50 border-amber-500 text-amber-700 ring-4 ring-amber-50',
-    rose: 'bg-rose-50 border-rose-500 text-rose-700 ring-4 ring-rose-50'
+    emerald: 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-4 ring-emerald-50 shadow-sm',
+    amber: 'bg-amber-50 border-amber-500 text-amber-700 ring-4 ring-amber-50 shadow-sm',
+    rose: 'bg-rose-50 border-rose-500 text-rose-700 ring-4 ring-rose-50 shadow-sm'
   };
-
   return (
-    <button type="button" onClick={onClick} className={`flex flex-col items-center gap-2 sm:gap-3 p-3 sm:p-6 rounded-2xl sm:rounded-3xl border-2 transition-all ${active ? activeStyles[color as keyof typeof activeStyles] : 'bg-white border-slate-100 text-slate-300 hover:border-slate-200'}`}>
+    <button type="button" onClick={onClick} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all active:scale-95 ${active ? activeStyles[color as keyof typeof activeStyles] : 'bg-white border-slate-100 text-slate-300'}`}>
       {icon}
-      <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest">{type}</span>
+      <span className="text-[9px] font-extrabold uppercase tracking-widest">{label}</span>
     </button>
   );
 };

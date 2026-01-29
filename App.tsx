@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Library, UploadCloud, ShieldCheck, Settings, LogOut,
-  Bell, Menu, X, Search, BookOpen, UserCheck, LayoutDashboard, Search as SearchIcon, Sparkles, MessageSquare
+  Bell, Menu, X, Search, BookOpen, UserCheck, LayoutDashboard, Search as SearchIcon, Sparkles, MessageSquare, CheckCircle2, AlertCircle, Info
 } from 'lucide-react';
 import { User, UserRole } from './types';
 import LibraryView from './components/LibraryView';
@@ -18,11 +18,14 @@ import AIAssistant from './components/AIAssistant';
 import Chat from './components/Chat';
 import { getUnreadSendersCount } from './services/mockData';
 
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
 const AppShell: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadSenders, setUnreadSenders] = useState(0);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,7 +42,15 @@ const AppShell: React.FC = () => {
     if (window.innerWidth < 1024) setSidebarOpen(false);
   }, [location.pathname]);
 
-  // Track unread messages from unique senders
+  useEffect(() => {
+    const handleToast = (e: any) => {
+      setToast({ message: e.detail.message, type: e.detail.type || 'success' });
+      setTimeout(() => setToast(null), 4000);
+    };
+    window.addEventListener('show-toast', handleToast);
+    return () => window.removeEventListener('show-toast', handleToast);
+  }, []);
+
   useEffect(() => {
     if (currentUser) {
       const updateUnread = () => {
@@ -67,6 +78,25 @@ const AppShell: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900 font-['Inter']">
+      {/* Toast Notification Container */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] animate-in slide-in-from-bottom-4 duration-300">
+          <div className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl shadow-2xl border ${
+            toast.type === 'success' ? 'bg-emerald-900 border-emerald-800 text-white' :
+            toast.type === 'error' ? 'bg-rose-900 border-rose-800 text-white' :
+            toast.type === 'warning' ? 'bg-amber-900 border-amber-800 text-white' :
+            'bg-slate-900 border-slate-800 text-white'
+          }`}>
+            {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-400" />}
+            {toast.type === 'error' && <AlertCircle size={20} className="text-rose-400" />}
+            {toast.type === 'warning' && <AlertCircle size={20} className="text-amber-400" />}
+            {toast.type === 'info' && <Info size={20} className="text-indigo-400" />}
+            <span className="text-xs font-bold tracking-tight">{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"><X size={14} /></button>
+          </div>
+        </div>
+      )}
+
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setSidebarOpen(false)} />
       )}
@@ -177,6 +207,10 @@ const NavLink = ({ to, icon, label, isOpen, badge }: any) => {
       )}
     </Link>
   );
+};
+
+export const showToast = (message: string, type: ToastType = 'success') => {
+  window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type } }));
 };
 
 const App: React.FC = () => <Router><AppShell /></Router>;

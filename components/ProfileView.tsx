@@ -15,7 +15,9 @@ import {
   BookMarked,
   Trash2,
   AlertTriangle,
-  Database
+  Database,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -27,6 +29,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [usage, setUsage] = useState(0);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [showNuclearModal, setShowNuclearModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,16 +53,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
     }
   };
 
-  const handlePurge = () => {
-    if (window.confirm("Delete ALL ScholarFlow manuscripts? Versions and drafts will be lost.")) {
-      clearAppPath();
-    }
+  const executePurge = () => {
+    clearAppPath();
   };
 
-  const handleNuclear = () => {
-    if (window.confirm("WARNING: This will wipe EVERYTHING in localStorage for this domain (localhost). This affects other projects you might have on this same origin. Use this only if uploads are failing even after a standard clear.")) {
-      nuclearReset();
-    }
+  const executeNuclear = () => {
+    nuclearReset();
   };
 
   const usagePercent = Math.min(100, (usage / (5 * 1024 * 1024)) * 100);
@@ -67,14 +67,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Stellaris Identity Profile</h1>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Stellaris Identity Profile</h1>
           <p className="text-slate-500 mt-1">Manage your university credentials and portal preferences.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center relative overflow-hidden group">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col items-center text-center relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-24 bg-indigo-900 flex items-center justify-center overflow-hidden">
                <div className="opacity-10 scale-150 rotate-12"><BookMarked size={120} className="text-white" /></div>
             </div>
@@ -90,7 +90,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
             </div>
 
             <div className="mt-6 space-y-1">
-              <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">{user.name}</h2>
               <p className="text-sm font-medium text-slate-500">{user.email}</p>
             </div>
 
@@ -114,15 +114,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
             )}
           </div>
 
-          <div className="bg-indigo-900 p-6 rounded-3xl text-white shadow-lg shadow-indigo-100">
+          <div className="bg-indigo-900 p-6 rounded-[2rem] text-white shadow-lg shadow-indigo-100">
             <h3 className="font-bold flex items-center gap-2 mb-2"><Shield size={18} /> Stellaris Verified</h3>
             <p className="text-xs text-indigo-100 mb-4 leading-relaxed">Your account is institutionally verified by the Stellaris Office of Graduate Admissions.</p>
-            <button className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all border border-white/20">Export Academic Record</button>
+            <button className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all border border-white/20 uppercase tracking-widest">Export Academic Record</button>
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><IdCard size={20} className="text-indigo-900" /> Stellaris Credentials</h3>
             </div>
@@ -135,7 +135,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
             </div>
           </div>
 
-          <div className="bg-rose-50 rounded-3xl border border-rose-100 overflow-hidden shadow-sm">
+          <div className="bg-rose-50 rounded-[2.5rem] border border-rose-100 overflow-hidden shadow-sm">
             <div className="p-6 border-b border-rose-100 flex items-center justify-between">
               <h3 className="font-bold text-rose-900 flex items-center gap-2"><AlertTriangle size={20} /> Data Management</h3>
             </div>
@@ -143,9 +143,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                   <h4 className="text-sm font-bold text-rose-800">Reset Vault</h4>
-                  <p className="text-xs text-rose-600/70">Wipe only ScholarFlow manuscripts.</p>
+                  <p className="text-xs text-rose-600/70 font-medium">Wipe only ScholarFlow manuscripts and drafts.</p>
                 </div>
-                <button onClick={handlePurge} className="w-full sm:w-auto px-6 py-2.5 bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
+                <button onClick={() => setShowPurgeModal(true)} className="w-full sm:w-auto px-6 py-3 bg-rose-100 text-rose-700 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-200 transition-all flex items-center justify-center gap-2">
                   <Trash2 size={14} /> Reset App
                 </button>
               </div>
@@ -153,9 +153,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
               <div className="pt-4 border-t border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                   <h4 className="text-sm font-bold text-rose-800">Nuclear System Reset</h4>
-                  <p className="text-xs text-rose-600/70 italic">Clears entire localhost origin. Fixed "Storage Full" errors.</p>
+                  <p className="text-xs text-rose-600/70 italic font-medium">Clears entire origin storage. Use only for fatal errors.</p>
                 </div>
-                <button onClick={handleNuclear} className="w-full sm:w-auto px-6 py-2.5 bg-rose-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg">
+                <button onClick={() => setShowNuclearModal(true)} className="w-full sm:w-auto px-6 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg">
                   <AlertTriangle size={14} /> Nuclear Reset
                 </button>
               </div>
@@ -163,6 +163,59 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onUpdate }) => {
           </div>
         </div>
       </div>
+
+      {/* Custom Confirmation Modals */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden text-center animate-in zoom-in duration-300 flex flex-col">
+            <div className="p-5 bg-indigo-900 text-white flex items-center justify-between shrink-0">
+               <h3 className="text-sm font-bold flex items-center gap-2"><ShieldAlert size={18} /> Institutional Purge</h3>
+               <button onClick={() => setShowPurgeModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                <Trash2 size={32} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Clear Manuscripts?</h3>
+              <p className="text-[11px] text-slate-500 leading-relaxed px-4">
+                This will delete all locally stored manuscripts and version history. User settings will remain intact.
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <button onClick={executePurge} className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-[10px] uppercase shadow-lg hover:bg-rose-700 transition-all active:scale-95">
+                  Confirm Deletion
+                </button>
+                <button onClick={() => setShowPurgeModal(false)} className="w-full py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-bold text-[10px] uppercase hover:bg-slate-50 transition-colors">Abort Action</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNuclearModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden text-center animate-in zoom-in duration-300 flex flex-col">
+            <div className="p-5 bg-indigo-900 text-white flex items-center justify-between shrink-0">
+               <h3 className="text-sm font-bold flex items-center gap-2"><AlertTriangle size={18} /> Critical System Reset</h3>
+               <button onClick={() => setShowNuclearModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-2 animate-pulse">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight text-rose-600">Nuclear Warning</h3>
+              <p className="text-[11px] text-slate-500 leading-relaxed px-4 italic">
+                This clears EVERYTHING in your browser storage for this domain. You will be signed out and all projects will be wiped.
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <button onClick={executeNuclear} className="w-full py-4 bg-indigo-900 text-white rounded-2xl font-bold text-[10px] uppercase shadow-lg hover:bg-slate-900 transition-all active:scale-95">
+                  Final System Wipe
+                </button>
+                <button onClick={() => setShowNuclearModal(false)} className="w-full py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-bold text-[10px] uppercase hover:bg-slate-50 transition-colors">Cancel Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -173,7 +226,7 @@ const DetailItem = ({ icon, label, value, highlight = false }: any) => (
       {icon}
       <span>{label}</span>
     </div>
-    <div className={`p-3 rounded-xl border border-slate-100 bg-slate-50/50 text-sm font-bold ${highlight ? 'text-indigo-900' : 'text-slate-700'}`}>
+    <div className={`p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 text-xs font-bold ${highlight ? 'text-indigo-900' : 'text-slate-700'}`}>
       {value}
     </div>
   </div>
